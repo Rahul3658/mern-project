@@ -22,8 +22,8 @@ pipeline {
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
         DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-        DOCKER_IMAGE_BACKEND = "amit/mern-backend"
-        DOCKER_IMAGE_FRONTEND = "amit/mern-frontend"
+        DOCKER_IMAGE_BACKEND = "Rahul3658/mern-backend"
+        DOCKER_IMAGE_FRONTEND = "Rahul3658/mern-frontend"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -33,7 +33,7 @@ pipeline {
             steps {
                 git branch: "${params.BRANCH}",
                     credentialsId: 'AI-Github-Jenkins',
-                    url: 'https://github.com/AmitJaiswal84/mernStack.git'
+                    url: 'https://github.com/Rahul3658/mern-project.git'
             }
         }
         
