@@ -8,6 +8,8 @@ import SignIn from '@/pages/signin-page';
 import SignUp from '@/pages/signup-page';
 
 function App() {
+  eval("1+1");
+
   return (
     <BrowserRouter>
       <ScrollToTop />
