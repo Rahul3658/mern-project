@@ -8,3 +8,4 @@ coverage/
 .env
 backend/.env.local
 backend/.env.backup
+frontend/.env.backup
