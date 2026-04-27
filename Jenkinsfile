@@ -92,42 +92,42 @@ pipeline {
         }
     }
 
-    post {
+//     post {
 
-        success {
-            emailext(
-                to: 'rahul3658@gmail.com',
-                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-Build Status : SUCCESS
-Project      : ${env.JOB_NAME}
-Build Number : ${env.BUILD_NUMBER}
+//         success {
+//             emailext(
+//                 to: 'rahuldc3658@gmail.com',
+//                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+//                 body: """
+// Build Status : SUCCESS
+// Project      : ${env.JOB_NAME}
+// Build Number : ${env.BUILD_NUMBER}
 
-Dashboard:
-http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
+// Dashboard:
+// http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
 
-Build URL:
-${env.BUILD_URL}
-"""
-            )
-        }
+// Build URL:
+// ${env.BUILD_URL}
+// """
+//             )
+//         }
 
-        failure {
-            emailext(
-                to: 'rahul3658@gmail.com',
-                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-Build Status : FAILED
-Project      : ${env.JOB_NAME}
-Build Number : ${env.BUILD_NUMBER}
+//         failure {
+//             emailext(
+//                 to: 'rahul3658@gmail.com',
+//                 subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+//                 body: """
+// Build Status : FAILED
+// Project      : ${env.JOB_NAME}
+// Build Number : ${env.BUILD_NUMBER}
 
-Dashboard:
-http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
+// Dashboard:
+// http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
 
-Build URL:
-${env.BUILD_URL}
-"""
-            )
-        }
+// Build URL:
+// ${env.BUILD_URL}
+// """
+//             )
+//         }
     }
 }
