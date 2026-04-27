@@ -7,13 +7,12 @@ pipeline {
 
     stages {
 
-        stage('git clone') {
+        stage('Checkout Code') {
             steps {
-                git branch: "$BRANCH",
-                url: "https://github.com/Rahul3658/mern-project.git"
+                checkout scm
             }
         }
-        
+
         stage('Semgrep Scan') {
             steps {
                 sh '''
@@ -24,16 +23,16 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('SonarQube Analysis') {
             steps {
                 script {
                     def scannerHome = tool 'sonar-scanner'
-        
+
                     withSonarQubeEnv('sonar') {
-        
+
                         if (env.CHANGE_ID) {
-                            // Pull Request Scan
+
                             sh """
                             ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=Mern-stack \
@@ -43,8 +42,9 @@ pipeline {
                             -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
                             -Dsonar.pullrequest.base=${env.CHANGE_TARGET}
                             """
+
                         } else {
-                            // Normal Branch Scan
+
                             sh """
                             ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=Mern-stack \
@@ -53,19 +53,17 @@ pipeline {
                             -Dsonar.branch.name=${env.BRANCH_NAME}
                             """
                         }
-        
                     }
                 }
             }
         }
 
-        
-       stage('Install Dependency') {
+        stage('Install Dependency') {
             steps {
                 sh '''
                     cd backend
                     npm install
-        
+
                     cd ../frontend
                     npm install
                 '''
@@ -81,12 +79,10 @@ pipeline {
 
                     snyk auth $SNYK_TOKEN
 
-                    echo "Running Frontend Scan..."
                     cd frontend
                     snyk test --severity-threshold=high || true
                     snyk monitor --project-name=mern-frontend
 
-                    echo "Running Backend Scan..."
                     cd ../backend
                     snyk test --severity-threshold=high || true
                     snyk monitor --project-name=mern-backend
@@ -96,46 +92,42 @@ pipeline {
         }
     }
 
-    post {
+//     post {
 
-        success {
-            emailext(
-                to: 'rahul.chaudhari@focalworks.in',
-                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-Build Status : SUCCESS
-Project      : ${env.JOB_NAME}
-Build Number : ${env.BUILD_NUMBER}
+//         success {
+//             emailext(
+//                 to: 'rahuldc3658@gmail.com',
+//                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+//                 body: """
+// Build Status : SUCCESS
+// Project      : ${env.JOB_NAME}
+// Build Number : ${env.BUILD_NUMBER}
 
-SonarQube Scan Completed Successfully.
+// Dashboard:
+// http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
 
-Dashboard:
-http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
+// Build URL:
+// ${env.BUILD_URL}
+// """
+//             )
+//         }
 
-Build URL:
-${env.BUILD_URL}
-                """
-            )
-        }
+//         failure {
+//             emailext(
+//                 to: 'rahul3658@gmail.com',
+//                 subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+//                 body: """
+// Build Status : FAILED
+// Project      : ${env.JOB_NAME}
+// Build Number : ${env.BUILD_NUMBER}
 
-        failure {
-            emailext(
-                to: 'rahul.chaudhari@focalworks.in',
-                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-Build Status : FAILED
-Project      : ${env.JOB_NAME}
-Build Number : ${env.BUILD_NUMBER}
+// Dashboard:
+// http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
 
-Please check Jenkins logs or SonarQube Quality Gate.
-
-Dashboard:
-http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
-
-Build URL:
-${env.BUILD_URL}
-                """
-            )
-        }
+// Build URL:
+// ${env.BUILD_URL}
+// """
+//             )
+//         }
     }
 }
