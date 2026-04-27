@@ -59,27 +59,6 @@ pipeline {
             }
         }
 
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         script {
-        //             def scannerHome  = tool 'sonar-scanner'
-        //             def SONAR_PROJECT = "${SONAR_PROJECT}-${BRANCH}"
-
-        //             withSonarQubeEnv('sonar') {
-        //                 sh """
-        //                 ${scannerHome}/bin/sonar-scanner \
-        //                 -Dsonar.projectKey=${SONAR_PROJECT} \
-        //                 -Dsonar.projectName=${SONAR_PROJECT} \
-        //                 -Dsonar.branch.name=${BRANCH} \
-        //                 -Dsonar.sources=./backend,./frontend \
-        //                 -Dsonar.exclusions=node_modules/**,build/**,dist/** \
-        //                 -Dsonar.sourceEncoding=UTF-8 \
-        //                 -Dsonar.scm.provider=git
-        //                 """
-        //             }
-        //         }
-        //     }
-        // }
         
        stage('Install Dependency') {
             steps {
