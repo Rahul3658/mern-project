@@ -1,80 +1,30 @@
 pipeline {
-    
-     parameters {
-        choice(
-            name: 'BRANCH',
-            choices: ['main', 'dev', 'feature'],
-            description: 'Select Git Branch to Build'
-        )
-    }
-    
-    agent {
-        node {
-            label 'MERN'
-            customWorkspace "/mnt/vol/jenkins/${env.JOB_NAME}"
-        }
-    }
-
-    tools {
-        nodejs '20.0.0'
-    }
+    agent any
 
     environment {
-        SCANNER_HOME = tool 'sonar-scanner'
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-        DOCKER_IMAGE_BACKEND = "Rahul3658/mern-backend"
-        DOCKER_IMAGE_FRONTEND = "Rahul3658/mern-frontend"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        SONAR_PROJECT = "Mern-stack"
     }
 
     stages {
 
-        stage('Checkout Code') {
+        stage('git clone') {
             steps {
-                git branch: "${params.BRANCH}",
-                    credentialsId: 'AI-Github-Jenkins',
-                    url: 'https://github.com/Rahul3658/mern-project.git'
+                git branch: "$BRANCH",
+                url: "https://github.com/Rahul3658/mern-project.git"
             }
         }
         
-           /* ---------------------------
-             SECRETS SCAN - GITLEAKS
-        ----------------------------- */
-        stage("Install GitLeaks") {
+        stage('Semgrep Scan') {
             steps {
                 sh '''
-                if ! command -v gitleaks >/dev/null 2>&1; then
-                    echo "Installing GitLeaks..."
-
-                    LATEST=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
-                             | grep browser_download_url \
-                             | grep linux_x64.tar.gz \
-                             | cut -d '"' -f 4)
-
-                    wget "$LATEST" -O gitleaks.tar.gz
-                    tar -xzf gitleaks.tar.gz
-
-                    BIN=$(find . -type f -name "gitleaks" | head -n 1)
-
-                    chmod +x "$BIN"
-                    sudo mv "$BIN" /usr/local/bin/gitleaks
-                fi
-
-                gitleaks version
+                docker run --rm \
+                -v $(pwd):/src \
+                semgrep/semgrep \
+                semgrep scan --config=auto /src
                 '''
             }
         }
-
-        stage('GitLeaks Scan') {
-            steps {
-                sh 'gitleaks detect --source ./frontend --exit-code 1'
-                sh 'gitleaks detect --source ./backend --exit-code 1'
-            }
-        }
-
-        /* ---------------------------
-                SAST - SONARQUBE
-        ----------------------------- */
+        
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -83,146 +33,130 @@ pipeline {
                     withSonarQubeEnv('sonar') {
         
                         if (env.CHANGE_ID) {
+                            // Pull Request Scan
                             sh """
                             ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=Mern-stack \
                             -Dsonar.projectName=Mern-stack \
+                            -Dsonar.sources=backend,frontend \
                             -Dsonar.pullrequest.key=${env.CHANGE_ID} \
                             -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
-                            -Dsonar.pullrequest.base=${env.CHANGE_TARGET} \
-                            -Dsonar.sources=./backend,./frontend \
-                            -Dsonar.exclusions=node_modules/**,build/**,dist/**
+                            -Dsonar.pullrequest.base=${env.CHANGE_TARGET}
                             """
                         } else {
+                            // Normal Branch Scan
                             sh """
                             ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=Mern-stack \
                             -Dsonar.projectName=Mern-stack \
-                            -Dsonar.branch.name=${BRANCH} \
-                            -Dsonar.sources=./backend,./frontend \
-                            -Dsonar.exclusions=node_modules/**,build/**,dist/**
+                            -Dsonar.sources=backend,frontend \
+                            -Dsonar.branch.name=${env.BRANCH_NAME}
                             """
                         }
+        
                     }
                 }
             }
         }
 
-        /* ---------------------------
-          SCA - OWASP DEPENDENCY CHECK
-        ----------------------------- */
-        // stage("OWASP Dependency Check") {
+        // stage('SonarQube Analysis') {
         //     steps {
         //         script {
-        //             // TODO: if you use a suppression file, put it under repo and update path below.
-        //             dependencyCheck additionalArguments: '''
-        //                 --scan ./ \
-        //                 --out ./dependency-check-report \
-        //                 --format XML --format HTML \
-        //                 --failOnCVSS 7
-        //             ''', odcInstallation: 'dc'
+        //             def scannerHome  = tool 'sonar-scanner'
+        //             def SONAR_PROJECT = "${SONAR_PROJECT}-${BRANCH}"
 
-        //             dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
+        //             withSonarQubeEnv('sonar') {
+        //                 sh """
+        //                 ${scannerHome}/bin/sonar-scanner \
+        //                 -Dsonar.projectKey=${SONAR_PROJECT} \
+        //                 -Dsonar.projectName=${SONAR_PROJECT} \
+        //                 -Dsonar.branch.name=${BRANCH} \
+        //                 -Dsonar.sources=./backend,./frontend \
+        //                 -Dsonar.exclusions=node_modules/**,build/**,dist/** \
+        //                 -Dsonar.sourceEncoding=UTF-8 \
+        //                 -Dsonar.scm.provider=git
+        //                 """
+        //             }
         //         }
         //     }
         // }
-
-        /* ---------------------------
-               SBOM - CYCLONEDX
-        ----------------------------- */
-        stage('Generate SBOM (CycloneDX)') {
+        
+       stage('Install Dependency') {
             steps {
                 sh '''
-                # Install CycloneDX generator (only first time this will take some time)
-                npm install -g @cyclonedx/bom || true
-
-                # Backend SBOM
-                cd backend
-                cyclonedx-bom -o ../sbom-backend.xml || true
-
-                # Frontend SBOM
-                cd ../frontend
-                cyclonedx-bom -o ../sbom-frontend.xml || true
+                    cd backend
+                    npm install
+        
+                    cd ../frontend
+                    npm install
                 '''
             }
         }
 
-         stage('Trivy FS Scan') {
+        stage('Snyk Security Scan') {
             steps {
-                sh 'trivy fs --format table -o fs-report.html .'
-            }
-        }
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                    sh '''
+                    export PATH=/var/lib/jenkins/.npm-global/bin:$PATH
+                    export SNYK_TOKEN=$SNYK_TOKEN
 
-        stage('Build Docker Images') {
-            steps {
-                sh """
-                docker build -f backend/Dockerfile -t $DOCKER_IMAGE_BACKEND:$IMAGE_TAG backend
-                docker build -f frontend/Dockerfile -t $DOCKER_IMAGE_FRONTEND:$IMAGE_TAG frontend
-                """
-            }
-        }
-        
-        
-        /* ---------------------------
-             TRIVY IMAGE SCAN ✅
-        ----------------------------- */
-       stage('Trivy Image Scan') {
-    steps {
-        sh """
-        trivy image --severity HIGH,CRITICAL --ignore-unfixed --no-progress $DOCKER_IMAGE_BACKEND:$IMAGE_TAG
-        trivy image --severity HIGH,CRITICAL --ignore-unfixed --no-progress $DOCKER_IMAGE_FRONTEND:$IMAGE_TAG
-        """
-    }
-}
+                    snyk auth $SNYK_TOKEN
 
-        stage('Push to DockerHub') {
-            steps {
-                sh """
-                echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-                docker push $DOCKER_IMAGE_BACKEND:$IMAGE_TAG
-                docker push $DOCKER_IMAGE_FRONTEND:$IMAGE_TAG
-                """
-            }
-        }
+                    echo "Running Frontend Scan..."
+                    cd frontend
+                    snyk test --severity-threshold=high || true
+                    snyk monitor --project-name=mern-frontend
 
-        stage('Deploy Containers') {
-            steps {
-                sh """
-                # Pull latest images
-                docker pull $DOCKER_IMAGE_BACKEND:$IMAGE_TAG
-                docker pull $DOCKER_IMAGE_FRONTEND:$IMAGE_TAG
-
-                # Stop & remove old containers
-                docker stop mern-backend || true
-                docker rm mern-backend || true
-
-                docker stop mern-frontend || true
-                docker rm mern-frontend || true
-
-                # Run Backend
-                docker run -d \
-                  --name mern-backend \
-                  --restart always \
-                  -p 5000:5000 \
-                  $DOCKER_IMAGE_BACKEND:$IMAGE_TAG
-
-                # Run Frontend
-                docker run -d \
-                  --name mern-frontend \
-                  --restart always \
-                  -p 3000:80 \
-                  $DOCKER_IMAGE_FRONTEND:$IMAGE_TAG
-                """
+                    echo "Running Backend Scan..."
+                    cd ../backend
+                    snyk test --severity-threshold=high || true
+                    snyk monitor --project-name=mern-backend
+                    '''
+                }
             }
         }
     }
 
     post {
+
         success {
-            echo "Build, Push & Deployment Successful 🚀"
+            emailext(
+                to: 'rahul.chaudhari@focalworks.in',
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+Build Status : SUCCESS
+Project      : ${env.JOB_NAME}
+Build Number : ${env.BUILD_NUMBER}
+
+SonarQube Scan Completed Successfully.
+
+Dashboard:
+http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
+
+Build URL:
+${env.BUILD_URL}
+                """
+            )
         }
+
         failure {
-            echo "Pipeline Failed ❌"
+            emailext(
+                to: 'rahul.chaudhari@focalworks.in',
+                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+Build Status : FAILED
+Project      : ${env.JOB_NAME}
+Build Number : ${env.BUILD_NUMBER}
+
+Please check Jenkins logs or SonarQube Quality Gate.
+
+Dashboard:
+http://192.168.7.156:9000/dashboard?id=${SONAR_PROJECT}
+
+Build URL:
+${env.BUILD_URL}
+                """
+            )
         }
     }
 }
