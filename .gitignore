@@ -7,3 +7,4 @@ coverage/
 .idea/
 .env
 backend/.env.local
+backend/.env.backup
