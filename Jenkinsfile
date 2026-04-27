@@ -77,15 +77,33 @@ pipeline {
         ----------------------------- */
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonar') {
-                    sh '''
-                        $SCANNER_HOME/bin/sonar-scanner \
-                        -Dsonar.projectKey=Mern-stack \
-                        -Dsonar.projectName=Mern-stack \
-                        -Dsonar.sources=./backend,./frontend \
-                        -Dsonar.exclusions=node_modules/**,build/**,dist/** \
-                        -Dsonar.sourceEncoding=UTF-8
-                    '''
+                script {
+                    def scannerHome = tool 'sonar-scanner'
+        
+                    withSonarQubeEnv('sonar') {
+        
+                        if (env.CHANGE_ID) {
+                            sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=Mern-stack \
+                            -Dsonar.projectName=Mern-stack \
+                            -Dsonar.pullrequest.key=${env.CHANGE_ID} \
+                            -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
+                            -Dsonar.pullrequest.base=${env.CHANGE_TARGET} \
+                            -Dsonar.sources=./backend,./frontend \
+                            -Dsonar.exclusions=node_modules/**,build/**,dist/**
+                            """
+                        } else {
+                            sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=Mern-stack \
+                            -Dsonar.projectName=Mern-stack \
+                            -Dsonar.branch.name=${BRANCH} \
+                            -Dsonar.sources=./backend,./frontend \
+                            -Dsonar.exclusions=node_modules/**,build/**,dist/**
+                            """
+                        }
+                    }
                 }
             }
         }
