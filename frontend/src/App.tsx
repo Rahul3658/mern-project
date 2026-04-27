@@ -6,7 +6,6 @@ import ScrollToTop from '@/components/scroll-to-top';
 import Footer from '@/layouts/footer-layout';
 import SignIn from '@/pages/signin-page';
 import SignUp from '@/pages/signup-page';
-
 function App() {
   return (
     <BrowserRouter>
